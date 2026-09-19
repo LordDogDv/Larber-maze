@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LARBER</title>
+<meta name="description" content="Labirinto: cada fase é maior e mais difícil que a anterior. Placar entre amigos.">
+<meta name="theme-color" content="#150f0a">
+<meta property="og:title" content="LARBER — Labirinto">
+<meta property="og:description" content="Cada fase é maior e mais difícil. Bora ver quem faz o melhor tempo.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%94%A5%3C/text%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg-deep: #150f0a;
+    --bg-panel: #1f170f;
+    --stone-dark: #4a3c28;
+    --path: #100b07;
+    --amber: #e39346;
+    --amber-glow: #f5c56b;
+    --emerald: #4f9d72;
+    --parchment: #ece0c8;
+    --parchment-dim: #b8a98a;
+    --focus-ring: #f5c56b;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: radial-gradient(ellipse at 50% -10%, #2a1e12 0%, var(--bg-deep) 55%, #0c0805 100%);
+    color: var(--parchment);
+    font-family: Georgia, 'Iowan Old Style', 'Palatino Linotype', ui-serif, serif;
+    min-height: 100vh;
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; }
+  .wrap {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 28px 18px 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  h1 {
+    font-family: Georgia, 'Iowan Old Style', serif;
+    font-weight: 700;
+    font-size: clamp(28px, 6vw, 42px);
+    letter-spacing: 0.04em;
+    margin: 0 0 4px;
+    color: var(--amber-glow);
+    text-shadow: 0 0 18px rgba(229, 160, 80, 0.35);
+  }
+  .subtitle {
+    color: var(--parchment-dim);
+    font-size: 14px;
+    margin-bottom: 22px;
+    text-align: center;
+    max-width: 420px;
+    line-height: 1.5;
+  }
+  .stats {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .stat {
+    background: var(--bg-panel);
+    border: 1px solid var(--stone-dark);
+    border-radius: 3px;
+    padding: 8px 16px;
+    text-align: center;
+    min-width: 84px;
+  }
+  .stat .n {
+    font-family: Georgia, serif;
+    font-size: 20px;
+    color: var(--amber-glow);
+    line-height: 1.1;
+  }
+  .stat .l {
+    font-size: 11px;
+    color: var(--parchment-dim);
+    margin-top: 2px;
+  }
+  .board-frame {
+    position: relative;
+    border-radius: 4px;
+    padding: 10px;
+    background: linear-gradient(160deg, #2c2013, #140e08);
+    border: 1px solid var(--stone-dark);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.55), inset 0 0 30px rgba(0,0,0,0.4);
+  }
+  canvas {
+    display: block;
+    border-radius: 2px;
+    background: var(--path);
+    touch-action: none;
+  }
+  #live-region {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip: rect(0 0 0 0); white-space: nowrap;
+  }
+  .modal-backdrop {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(6, 4, 2, 0.72);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .modal-backdrop.show { display: flex; }
+  .modal {
+    width: min(360px, 100%);
+    max-height: 86vh;
+    overflow-y: auto;
+    background: linear-gradient(160deg, #241a10, #140e08);
+    border: 1px solid var(--stone-dark);
+    border-radius: 6px;
+    padding: 22px;
+    text-align: center;
+    box-shadow: 0 30px 70px rgba(0,0,0,0.6);
+  }
+  .modal:focus { outline: none; }
+  .modal h2 {
+    font-family: Georgia, serif;
+    color: var(--emerald);
+    font-size: 24px;
+    margin: 0 0 8px;
+  }
+  .modal p {
+    color: var(--parchment-dim);
+    font-size: 13px;
+    margin: 0 0 14px;
+  }
+  button {
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 14px;
+    border: 1px solid var(--amber);
+    background: transparent;
+    color: var(--amber-glow);
+    padding: 10px 22px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    letter-spacing: 0.02em;
+  }
+  button:hover { background: var(--amber); color: #1a1109; }
+  button:active { transform: translateY(1px); }
+  button:focus-visible, input:focus-visible, [tabindex]:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+  .name-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .name-row input {
+    flex: 1;
+    background: var(--bg-panel);
+    border: 1px solid var(--stone-dark);
+    color: var(--parchment);
+    font-family: inherit;
+    font-size: 13px;
+    padding: 9px 10px;
+    border-radius: 3px;
+    min-width: 0;
+  }
+  .name-row input:focus { outline: none; border-color: var(--amber); }
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 4px; }
+  .controls-row {
+    display: flex; gap: 10px; margin-top: 20px; align-items: center;
+    flex-wrap: wrap; justify-content: center;
+  }
+  .pad {
+    display: grid;
+    grid-template-columns: repeat(3, 46px);
+    grid-template-rows: repeat(2, 46px);
+    gap: 5px;
+    margin-top: 22px;
+  }
+  .pad button { padding: 0; font-size: 17px; line-height: 1; }
+  .pad .spacer { visibility: hidden; }
+  .hint { color: var(--parchment-dim); font-size: 12px; margin-top: 10px; text-align: center; }
+  .board-table { width: 100%; border-collapse: collapse; margin-top: 4px; font-size: 13px; }
+  .board-table th {
+    text-align: left; color: var(--parchment-dim); font-weight: 600; font-size: 11px;
+    padding: 4px 8px; border-bottom: 1px solid var(--stone-dark);
+  }
+  .board-table td { padding: 5px 8px; border-bottom: 1px solid rgba(74,60,40,0.4); color: var(--parchment); text-align: left; }
+  .board-table tr:last-child td { border-bottom: none; }
+  .board-table .rank { color: var(--amber-glow); font-family: Georgia, serif; width: 22px; }
+  .board-wrap { width: 100%; max-height: 220px; overflow-y: auto; margin-top: 4px; }
+  .board-empty { color: var(--parchment-dim); font-size: 12px; padding: 10px 0; }
+  .panel-title { font-family: Georgia, serif; color: var(--amber-glow); font-size: 15px; margin: 4px 0 0; }
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>LARBER</h1>
+  <p class="subtitle">Guie a chama até a saída esmeralda. A cada fase o labirinto cresce e, a partir da fase 4, sua visão encolhe. Use as setas, WASD ou os botões abaixo.</p>
+
+  <div class="stats">
+    <div class="stat"><div class="n" id="stat-level">1</div><div class="l">nível</div></div>
+    <div class="stat"><div class="n" id="stat-time">00:00</div><div class="l">tempo</div></div>
+    <div class="stat"><div class="n" id="stat-moves">0</div><div class="l">passos</div></div>
+  </div>
+
+  <div class="board-frame">
+    <canvas id="board" role="img" aria-label="Mapa do labirinto"></canvas>
+  </div>
+  <div id="live-region" aria-live="polite"></div>
+
+  <div class="pad" id="pad">
+    <div class="spacer"></div>
+    <button data-dir="up" aria-label="Mover para cima">▲</button>
+    <div class="spacer"></div>
+    <button data-dir="left" aria-label="Mover para esquerda">◀</button>
+    <button data-dir="down" aria-label="Mover para baixo">▼</button>
+    <button data-dir="right" aria-label="Mover para direita">▶</button>
+  </div>
+
+  <div class="controls-row">
+    <button id="restart-btn">Reiniciar nível</button>
+    <button id="board-btn">Ver placar</button>
+    <button id="share-btn">Compartilhar</button>
+  </div>
+  <p class="hint">Cada nível concluído torna o labirinto maior — e mais difícil. Todo mundo joga o mesmo labirinto em cada nível.</p>
+</div>
+
+<div class="modal-backdrop" id="modal-backdrop">
+  <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" tabindex="-1">
+    <h2 id="modal-title">Você escapou!</h2>
+    <p id="modal-text">Nível concluído em 00:00 com 0 passos.</p>
+
+    <div class="name-row" id="name-row">
+      <label for="name-input" class="sr-only">Seu nome</label>
+      <input type="text" id="name-input" maxlength="18" placeholder="Seu nome" autocomplete="off">
+      <button id="save-score-btn">Salvar</button>
+    </div>
+
+    <p class="panel-title" id="board-title">Placar — Nível 1</p>
+    <div class="board-wrap" id="board-wrap">
+      <div class="board-empty">Carregando placar…</div>
+    </div>
+
+    <div class="btn-row">
+      <button id="modal-btn">Próximo nível</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // =========================================================
+  // Supabase config — preencha com os dados do seu projeto
+  // (Settings > API no painel do Supabase). O SQL de setup
+  // está no README.md que acompanha este arquivo.
+  // =========================================================
+  const SUPABASE_URL = 'https://zqcqoejwwxqhqavadkdm.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_1wp9FxVZZinzJUrI3VIjyA_Qda7O9TY';
+  const dbConfigured = !SUPABASE_URL.includes('YOUR_') && !SUPABASE_ANON_KEY.includes('YOUR_');
+
+  const canvas = document.getElementById('board');
+  const ctx = canvas.getContext('2d');
+  const modalBackdrop = document.getElementById('modal-backdrop');
+  const modal = document.getElementById('modal');
+  const modalTitle = document.getElementById('modal-title');
+  const modalText = document.getElementById('modal-text');
+  const modalBtn = document.getElementById('modal-btn');
+  const statLevel = document.getElementById('stat-level');
+  const statTime = document.getElementById('stat-time');
+  const statMoves = document.getElementById('stat-moves');
+  const restartBtn = document.getElementById('restart-btn');
+  const boardBtn = document.getElementById('board-btn');
+  const shareBtn = document.getElementById('share-btn');
+  const pad = document.getElementById('pad');
+  const nameRow = document.getElementById('name-row');
+  const nameInput = document.getElementById('name-input');
+  const saveScoreBtn = document.getElementById('save-score-btn');
+  const boardTitle = document.getElementById('board-title');
+  const boardWrap = document.getElementById('board-wrap');
+  const liveRegion = document.getElementById('live-region');
+
+  function announce(msg){ liveRegion.textContent = msg; }
+
+  // ---------- progress persistence ----------
+  const STORAGE_KEY = 'larber_maze_progress_v1';
+  function loadProgress(){
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : { level: 1, bestByLevel: {} };
+    } catch (e) { return { level: 1, bestByLevel: {} }; }
+  }
+  function saveProgress(){
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(progress)); } catch (e) {}
+  }
+  let progress = loadProgress();
+
+  let level = progress.level || 1;
+  let cols, rows, cellSize, dpr = 1;
+  let grid = [];
+  let player = {x:0, y:0};
+  let goal = {x:0, y:0};
+  let moves = 0;
+  let startTime = null;
+  let pausedAt = null;
+  let elapsed = 0;
+  let timerId = null;
+  let won = false;
+  let overlayOpen = false;
+  let needsDraw = true;
+  let lastFocused = null;
+
+  try {
+    const savedName = localStorage.getItem('larber_maze_name');
+    if (savedName) nameInput.value = savedName;
+  } catch (e) {}
+
+  // ---------- seeded RNG (deterministic maze per level) ----------
+  function mulberry32(seed) {
+    return function() {
+      seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function seedForLevel(lvl){ return (lvl * 2654435761) >>> 0; }
+
+  // ---------- difficulty curve ----------
+  function sizeForLevel(lvl) {
+    const n = Math.min(6 + (lvl - 1) * 3, 30);
+    return { c: n, r: n };
+  }
+  function visionRadiusForLevel(lvl) {
+    if (lvl < 4) return null;
+    return Math.max(2.2, 6.5 - (lvl - 4) * 0.35);
+  }
+
+  function makeGrid(c, r) {
+    const g = [];
+    for (let y = 0; y < r; y++) {
+      const row = [];
+      for (let x = 0; x < c; x++) row.push({ x, y, walls: {N:true,S:true,E:true,W:true}, visited:false });
+      g.push(row);
+    }
+    return g;
+  }
+
+  function generateMaze(c, r, rng, braidProb) {
+    const g = makeGrid(c, r);
+    const stack = [];
+    let current = g[0][0];
+    current.visited = true;
+    stack.push(current);
+
+    function neighbors(cell) {
+      const list = [];
+      const {x,y} = cell;
+      if (y > 0 && !g[y-1][x].visited) list.push({cell: g[y-1][x], dir:'N', opp:'S'});
+      if (y < r-1 && !g[y+1][x].visited) list.push({cell: g[y+1][x], dir:'S', opp:'N'});
+      if (x < c-1 && !g[y][x+1].visited) list.push({cell: g[y][x+1], dir:'E', opp:'W'});
+      if (x > 0 && !g[y][x-1].visited) list.push({cell: g[y][x-1], dir:'W', opp:'E'});
+      return list;
+    }
+
+    while (stack.length) {
+      current = stack[stack.length - 1];
+      const avail = neighbors(current);
+      if (avail.length === 0) { stack.pop(); continue; }
+      const pick = avail[Math.floor(rng() * avail.length)];
+      current.walls[pick.dir] = false;
+      pick.cell.walls[pick.opp] = false;
+      pick.cell.visited = true;
+      stack.push(pick.cell);
+    }
+
+    braid(g, c, r, rng, braidProb);
+    return g;
+  }
+
+  // braiding: turn some dead ends into loops for more interesting mazes
+  function braid(g, c, r, rng, probability) {
+    for (let y = 0; y < r; y++) {
+      for (let x = 0; x < c; x++) {
+        const cell = g[y][x];
+        const openCount = ['N','S','E','W'].filter(d => !cell.walls[d]).length;
+        if (openCount !== 1) continue;
+        if (rng() >= probability) continue;
+        const candidates = [];
+        if (y > 0 && cell.walls.N) candidates.push({dir:'N', opp:'S', cell:g[y-1][x]});
+        if (y < r-1 && cell.walls.S) candidates.push({dir:'S', opp:'N', cell:g[y+1][x]});
+        if (x < c-1 && cell.walls.E) candidates.push({dir:'E', opp:'W', cell:g[y][x+1]});
+        if (x > 0 && cell.walls.W) candidates.push({dir:'W', opp:'E', cell:g[y][x-1]});
+        if (candidates.length === 0) continue;
+        const pick = candidates[Math.floor(rng() * candidates.length)];
+        cell.walls[pick.dir] = false;
+        pick.cell.walls[pick.opp] = false;
+      }
+    }
+  }
+
+  function computeCellSize(c, r) {
+    const maxWidth = Math.min(window.innerWidth - 60, 560);
+    const maxHeight = Math.min(window.innerHeight * 0.5, 560);
+    const size = Math.floor(Math.min(maxWidth / c, maxHeight / r));
+    return Math.max(8, Math.min(size, 44));
+  }
+
+  function setupLevel(lvl, announceStart) {
+    level = lvl;
+    won = false;
+    overlayOpen = false;
+    modalBackdrop.classList.remove('show');
+    const {c, r} = sizeForLevel(lvl);
+    cols = c; rows = r;
+    const rng = mulberry32(seedForLevel(lvl));
+    const braidProb = 0.08;
+    grid = generateMaze(cols, rows, rng, braidProb);
+    player = {x:0, y:0};
+    const cornerOptions = [
+      {x: cols-1, y: 0},
+      {x: 0, y: rows-1},
+      {x: cols-1, y: rows-1}
+    ];
+    goal = cornerOptions[Math.floor(rng() * cornerOptions.length)];
+    moves = 0;
+    elapsed = 0;
+    pausedAt = null;
+    startTime = performance.now();
+    statMoves.textContent = '0';
+    statTime.textContent = '00:00';
+    statLevel.textContent = String(lvl);
+
+    progress.level = lvl;
+    saveProgress();
+
+    resizeCanvas();
+    needsDraw = true;
+    if (timerId) clearInterval(timerId);
+    timerId = setInterval(tick, 250);
+    if (announceStart) announce(`Nível ${lvl}. Labirinto de ${cols} por ${rows} células.`);
+  }
+
+  function resizeCanvas() {
+    cellSize = computeCellSize(cols, rows);
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.style.width = (cols * cellSize) + 'px';
+    canvas.style.height = (rows * cellSize) + 'px';
+    canvas.width = cols * cellSize * dpr;
+    canvas.height = rows * cellSize * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    needsDraw = true;
+  }
+
+  function tick() {
+    if (overlayOpen) return;
+    elapsed = (performance.now() - startTime) / 1000;
+    statTime.textContent = fmtTime(elapsed);
+  }
+  function fmtTime(sec) {
+    const s = Math.max(0, sec);
+    const m = Math.floor(s / 60).toString().padStart(2,'0');
+    const r = Math.floor(s % 60).toString().padStart(2,'0');
+    return m + ':' + r;
+  }
+
+  function pauseTimer(){
+    if (timerId) { clearInterval(timerId); timerId = null; }
+    pausedAt = performance.now();
+  }
+  function resumeTimer(){
+    if (pausedAt !== null) { startTime += performance.now() - pausedAt; pausedAt = null; }
+    if (!timerId) timerId = setInterval(tick, 250);
+  }
+
+  // ---------- rendering (batched, DPR-aware) ----------
+  function draw() {
+    const cw = cols * cellSize, ch = rows * cellSize;
+    ctx.clearRect(0, 0, cw, ch);
+    ctx.fillStyle = '#100b07';
+    ctx.fillRect(0, 0, cw, ch);
+
+    ctx.strokeStyle = '#8a7350';
+    ctx.lineCap = 'square';
+    ctx.lineWidth = Math.max(2, cellSize * 0.09);
+    ctx.beginPath();
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        const cell = grid[y][x];
+        const px = x * cellSize, py = y * cellSize;
+        if (cell.walls.N) { ctx.moveTo(px, py); ctx.lineTo(px + cellSize, py); }
+        if (cell.walls.S) { ctx.moveTo(px, py + cellSize); ctx.lineTo(px + cellSize, py + cellSize); }
+        if (cell.walls.W) { ctx.moveTo(px, py); ctx.lineTo(px, py + cellSize); }
+        if (cell.walls.E) { ctx.moveTo(px + cellSize, py); ctx.lineTo(px + cellSize, py + cellSize); }
+      }
+    }
+    ctx.stroke();
+
+    const gx = goal.x * cellSize + cellSize/2;
+    const gy = goal.y * cellSize + cellSize/2;
+    const gradG = ctx.createRadialGradient(gx, gy, 1, gx, gy, cellSize*0.55);
+    gradG.addColorStop(0, '#7fe0a8');
+    gradG.addColorStop(1, 'rgba(79,157,114,0)');
+    ctx.fillStyle = gradG;
+    ctx.fillRect(gx - cellSize/2, gy - cellSize/2, cellSize, cellSize);
+    ctx.fillStyle = '#4f9d72';
+    ctx.beginPath(); ctx.arc(gx, gy, cellSize * 0.22, 0, Math.PI*2); ctx.fill();
+
+    const px = player.x * cellSize + cellSize/2;
+    const py = player.y * cellSize + cellSize/2;
+    const gradP = ctx.createRadialGradient(px, py, 1, px, py, cellSize*0.7);
+    gradP.addColorStop(0, 'rgba(245,197,107,0.9)');
+    gradP.addColorStop(1, 'rgba(245,197,107,0)');
+    ctx.fillStyle = gradP;
+    ctx.fillRect(px - cellSize*0.8, py - cellSize*0.8, cellSize*1.6, cellSize*1.6);
+    ctx.fillStyle = '#f5c56b';
+    ctx.beginPath(); ctx.arc(px, py, cellSize * 0.24, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#e39346';
+    ctx.beginPath(); ctx.arc(px, py, cellSize * 0.12, 0, Math.PI*2); ctx.fill();
+
+    const radiusCells = visionRadiusForLevel(level);
+    if (radiusCells !== null) {
+      const radiusPx = radiusCells * cellSize;
+      ctx.fillStyle = 'rgba(8,5,3,1)';
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0,0,cw,ch);
+      ctx.arc(px, py, radiusPx, 0, Math.PI*2, true);
+      ctx.closePath();
+      ctx.fill('evenodd');
+      ctx.restore();
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(px, py, radiusPx, 0, Math.PI*2);
+      ctx.clip();
+      const edge = ctx.createRadialGradient(px, py, radiusPx*0.6, px, py, radiusPx);
+      edge.addColorStop(0, 'rgba(8,5,3,0)');
+      edge.addColorStop(0.65, 'rgba(8,5,3,0.5)');
+      edge.addColorStop(1, 'rgba(8,5,3,0.92)');
+      ctx.fillStyle = edge;
+      ctx.fillRect(0,0,cw,ch);
+      ctx.restore();
+    }
+  }
+
+  function renderLoop() {
+    if (needsDraw) { draw(); needsDraw = false; }
+    requestAnimationFrame(renderLoop);
+  }
+  requestAnimationFrame(renderLoop);
+
+  function move(dir) {
+    if (won || overlayOpen) return;
+    const cell = grid[player.y][player.x];
+    let nx = player.x, ny = player.y, blocked = false;
+    if (dir === 'up') { if (!cell.walls.N) ny -= 1; else blocked = true; }
+    else if (dir === 'down') { if (!cell.walls.S) ny += 1; else blocked = true; }
+    else if (dir === 'left') { if (!cell.walls.W) nx -= 1; else blocked = true; }
+    else if (dir === 'right') { if (!cell.walls.E) nx += 1; else blocked = true; }
+
+    if (blocked) {
+      if (navigator.vibrate) navigator.vibrate(12);
+      return;
+    }
+
+    player.x = nx; player.y = ny;
+    moves += 1;
+    statMoves.textContent = String(moves);
+    needsDraw = true;
+
+    if (player.x === goal.x && player.y === goal.y) winLevel();
+  }
+
+  function winLevel() {
+    won = true;
+    overlayOpen = true;
+    clearInterval(timerId);
+    timerId = null;
+    elapsed = (performance.now() - startTime) / 1000;
+
+    const best = progress.bestByLevel[level];
+    if (!best || elapsed < best.time) {
+      progress.bestByLevel[level] = { time: Math.round(elapsed*10)/10, moves };
+      saveProgress();
+    }
+
+    if (navigator.vibrate) navigator.vibrate([20, 40, 20]);
+    modalTitle.textContent = 'Você escapou!';
+    modalText.textContent = `Nível ${level} concluído em ${fmtTime(elapsed)} com ${moves} passos.`;
+    modalBtn.textContent = 'Próximo nível';
+    nameRow.style.display = 'flex';
+    saveScoreBtn.disabled = false;
+    saveScoreBtn.textContent = 'Salvar';
+    boardTitle.textContent = `Placar — Nível ${level}`;
+    announce(`Você escapou! Nível ${level} concluído em ${fmtTime(elapsed)} com ${moves} passos.`);
+    openModal(nameInput);
+    renderLeaderboard(level);
+  }
+
+  function showBoardOnly() {
+    overlayOpen = true;
+    pauseTimer();
+    modalTitle.textContent = `Placar — Nível ${level}`;
+    modalText.textContent = 'Melhores tempos registrados neste labirinto.';
+    modalBtn.textContent = 'Fechar';
+    nameRow.style.display = 'none';
+    boardTitle.textContent = `Placar — Nível ${level}`;
+    openModal(modalBtn);
+    renderLeaderboard(level);
+  }
+
+  // ---------- modal a11y: focus trap + Escape ----------
+  function openModal(focusTarget) {
+    lastFocused = document.activeElement;
+    modalBackdrop.classList.add('show');
+    (focusTarget || modal).focus();
+    document.addEventListener('keydown', modalKeydown);
+  }
+  function closeModalUI() {
+    modalBackdrop.classList.remove('show');
+    document.removeEventListener('keydown', modalKeydown);
+    if (lastFocused && lastFocused.focus) lastFocused.focus();
+  }
+  function modalKeydown(e) {
+    if (e.key === 'Escape') { e.preventDefault(); modalBtn.click(); return; }
+    if (e.key === 'Tab') {
+      const focusables = modal.querySelectorAll('button, input, [tabindex]:not([tabindex="-1"])');
+      if (focusables.length === 0) return;
+      const first = focusables[0], last = focusables[focusables.length-1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  }
+
+  modalBtn.addEventListener('click', () => {
+    const wasWin = won;
+    closeModalUI();
+    if (wasWin) {
+      setupLevel(level + 1, true);
+    } else {
+      overlayOpen = false;
+      resumeTimer();
+    }
+  });
+
+  restartBtn.addEventListener('click', () => setupLevel(level, true));
+  boardBtn.addEventListener('click', showBoardOnly);
+
+  shareBtn.addEventListener('click', async () => {
+    const text = `Estou no nível ${level} do LARBER! Bora tentar bater meu tempo?`;
+    const url = window.location.href;
+    if (navigator.share) {
+      try { await navigator.share({ title: 'LARBER', text, url }); } catch (e) {}
+    } else {
+      try {
+        await navigator.clipboard.writeText(`${text} ${url}`);
+        announce('Link copiado para a área de transferência.');
+        shareBtn.textContent = 'Copiado ✓';
+        setTimeout(() => { shareBtn.textContent = 'Compartilhar'; }, 1600);
+      } catch (e) {}
+    }
+  });
+
+  saveScoreBtn.addEventListener('click', async () => {
+    const name = nameInput.value.trim();
+    if (!name) { nameInput.focus(); return; }
+    try { localStorage.setItem('larber_maze_name', name); } catch (e) {}
+    saveScoreBtn.disabled = true;
+    saveScoreBtn.textContent = 'Salvando…';
+    const ok = await saveScore(level, name, elapsed, moves);
+    saveScoreBtn.textContent = ok ? 'Salvo ✓' : 'Falhou, tenta de novo';
+    if (!ok) saveScoreBtn.disabled = false;
+    renderLeaderboard(level);
+  });
+
+  window.addEventListener('keydown', (e) => {
+    if (overlayOpen) return;
+    const map = {
+      ArrowUp:'up', ArrowDown:'down', ArrowLeft:'left', ArrowRight:'right',
+      w:'up', s:'down', a:'left', d:'right', W:'up', S:'down', A:'left', D:'right'
+    };
+    if (map[e.key]) { e.preventDefault(); move(map[e.key]); }
+  });
+
+  pad.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-dir]');
+    if (btn) move(btn.dataset.dir);
+  });
+
+  let touchStart = null;
+  canvas.addEventListener('touchstart', (e) => {
+    const t = e.touches[0];
+    touchStart = {x: t.clientX, y: t.clientY};
+  }, {passive:true});
+  canvas.addEventListener('touchend', (e) => {
+    if (!touchStart) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touchStart.x, dy = t.clientY - touchStart.y;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) > 24) {
+      if (Math.abs(dx) > Math.abs(dy)) move(dx > 0 ? 'right' : 'left');
+      else move(dy > 0 ? 'down' : 'up');
+    }
+    touchStart = null;
+  }, {passive:true});
+
+  // debounced resize
+  let resizeTimer = null;
+  window.addEventListener('resize', () => {
+    if (!cols) return;
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(resizeCanvas, 120);
+  });
+
+  // ---------- leaderboard (Supabase REST) ----------
+  async function saveScore(lvl, name, timeSeconds, movesCount) {
+    if (!dbConfigured) return false;
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/scores`, {
+        method: 'POST',
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+          Prefer: 'return=minimal'
+        },
+        body: JSON.stringify({
+          level: lvl,
+          name: name.slice(0, 18),
+          time_seconds: Math.round(timeSeconds * 10) / 10,
+          moves: movesCount
+        })
+      });
+      return res.ok;
+    } catch (e) {
+      console.error('Falha ao salvar pontuação', e);
+      return false;
+    }
+  }
+
+  async function fetchLeaderboard(lvl) {
+    if (!dbConfigured) return null;
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/scores?level=eq.${lvl}&select=name,time_seconds,moves&order=time_seconds.asc&limit=10`,
+        { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } }
+      );
+      if (!res.ok) return [];
+      return res.json();
+    } catch (e) {
+      console.error('Falha ao carregar placar', e);
+      return [];
+    }
+  }
+
+  async function renderLeaderboard(lvl) {
+    if (!dbConfigured) {
+      boardWrap.innerHTML = '<div class="board-empty">Placar ainda não configurado — veja o README.md para ligar o Supabase.</div>';
+      return;
+    }
+    boardWrap.innerHTML = '<div class="board-empty">Carregando placar…</div>';
+    const rows = await fetchLeaderboard(lvl);
+    if (rows === null || rows === undefined) {
+      boardWrap.innerHTML = '<div class="board-empty">Não foi possível carregar o placar agora.</div>';
+      return;
+    }
+    if (rows.length === 0) {
+      boardWrap.innerHTML = '<div class="board-empty">Ninguém completou este nível ainda. Seja o primeiro!</div>';
+      return;
+    }
+    let html = '<table class="board-table"><thead><tr><th scope="col"></th><th scope="col">Nome</th><th scope="col">Tempo</th><th scope="col">Passos</th></tr></thead><tbody>';
+    rows.forEach((r, i) => {
+      const name = (r.name || 'Anônimo').toString().slice(0, 18);
+      html += `<tr><td class="rank">${i+1}</td><td>${escapeHtml(name)}</td><td>${fmtTime(r.time_seconds || 0)}</td><td>${r.moves || 0}</td></tr>`;
+    });
+    html += '</tbody></table>';
+    boardWrap.innerHTML = html;
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  setupLevel(level, false);
+})();
+</script>
+</body>
+</html>
